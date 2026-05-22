@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="PromptForge">
+  <rect width="32" height="32" rx="6" fill="#14342b"/>
+  <path d="M8 8h16v4H12v4h10v4H12v4H8z" fill="#f6f1e8"/>
+  <path d="M20 20h4v4h-4z" fill="#2f80ed"/>
+</svg>

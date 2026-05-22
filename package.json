@@ -1,0 +1,10 @@
+{
+  "name": "promptforge-builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start:proxy": "node backend/proxy-server.mjs",
+    "package:extension": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-extension.ps1"
+  }
+}
