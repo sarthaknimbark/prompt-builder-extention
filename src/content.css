@@ -1,0 +1,113 @@
+.promptforge-assist-button {
+  position: fixed;
+  z-index: 2147483646;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(20, 52, 43, 0.18);
+  border-radius: 999px;
+  background: #14342b;
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(20, 52, 43, 0.24);
+  font: 800 13px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+
+.promptforge-assist-button:hover {
+  background: #1d4a3d;
+}
+
+.promptforge-panel {
+  position: fixed;
+  z-index: 2147483647;
+  width: min(380px, calc(100vw - 24px));
+  border: 1px solid #d9dfdc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #19201d;
+  box-shadow: 0 18px 48px rgba(20, 52, 43, 0.22);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+.promptforge-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f5f7f6;
+  border-bottom: 1px solid #d9dfdc;
+}
+
+.promptforge-panel-title {
+  display: grid;
+  gap: 2px;
+}
+
+.promptforge-panel-title strong {
+  font-size: 14px;
+}
+
+.promptforge-panel-title span {
+  color: #61706a;
+  font-size: 12px;
+}
+
+.promptforge-close {
+  border: 0;
+  background: transparent;
+  color: #61706a;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.promptforge-panel-body {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.promptforge-action {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid #d9dfdc;
+  border-radius: 8px;
+  background: #fff;
+  color: #19201d;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.promptforge-action:hover {
+  border-color: #14342b;
+  background: #f7fbf9;
+}
+
+.promptforge-action strong {
+  font-size: 13px;
+}
+
+.promptforge-action span {
+  color: #61706a;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.promptforge-status {
+  border-left: 3px solid #2f80ed;
+  border-radius: 6px;
+  background: #eef6ff;
+  color: #16436f;
+  padding: 9px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.promptforge-status.error {
+  border-left-color: #b42318;
+  background: #fff1f0;
+  color: #7a271a;
+}

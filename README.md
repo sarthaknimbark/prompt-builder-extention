@@ -17,6 +17,7 @@ PromptForge Builder is a local-first Chrome/Edge extension MVP for creating, val
 - Live testing through the Groq OpenAI-compatible chat completions endpoint
 - Hosted backend proxy mode so all users can use your API without seeing your key
 - LLM prompt enhancement from the builder
+- Grammarly-style prompt suggestion widget on supported AI chat pages
 
 ## Load Locally
 
@@ -109,6 +110,34 @@ Do not ship a direct API key inside the extension. Browser extension files can b
 
 Open the Builder, create or load a prompt, then click Enhance with LLM. PromptForge sends the compiled prompt to the configured API mode and replaces the current sections with an improved prompt. Review it, then click Save Version.
 
+## Chat Page Suggestions
+
+PromptForge also injects a small `PF` assistant button on supported chat pages:
+
+- ChatGPT
+- Claude
+- Gemini
+- Microsoft Copilot
+- Grok
+- Perplexity
+
+When the user focuses a chat input, the `PF` button appears near the input. Clicking it opens suggestions:
+
+- Enhance with LLM
+- Add prompt structure
+- Make it concise
+- Make it detailed
+
+The LLM enhancement uses the production proxy URL from `src/config.js`. Before publishing for all users, set:
+
+```js
+window.PROMPTFORGE_CONFIG = {
+  apiMode: "proxy",
+  proxyEndpoint: "https://your-backend-domain.com/api/chat",
+  model: "llama-3.3-70b-versatile"
+};
+```
+
 ## Deploy The Extension
 
 ### 1. Deploy The Backend Proxy
@@ -199,6 +228,8 @@ popup.html           Small extension popup
 app.html             Full builder interface
 backend/             Optional API proxy server for production-style deployment
 src/app.js           Main app state, rendering, validation, exports, and API testing
+src/content.js       Grammarly-style prompt assistant for chat pages
+src/content.css      Prompt assistant widget styling
 src/db.js            IndexedDB helper
 src/templates.js     Starter prompt templates
 src/styles.css       Responsive UI styles
