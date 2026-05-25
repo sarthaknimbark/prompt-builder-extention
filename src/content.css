@@ -2,27 +2,40 @@
 .promptforge-assist-button {
   position: fixed;
   z-index: 2147483646;
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: none;
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(16, 185, 129, 0.2);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Capsule/Pill shape matching the logo design */
+  border-radius: 22px;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 0 8px rgba(16, 185, 129, 0.1),
+    inset 0 0 6px rgba(255, 255, 255, 0.15);
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   padding: 0;
   overflow: visible;
   outline: none;
-  box-shadow: none;
 }
 
 .promptforge-assist-button:hover:not(.busy) {
-  transform: scale(1.15) translateY(-2px);
+  transform: scale(1.18) rotate(15deg);
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 
+    0 6px 18px rgba(16, 185, 129, 0.25),
+    inset 0 0 10px rgba(255, 255, 255, 0.25);
 }
 
 .promptforge-assist-button:active:not(.busy) {
-  transform: scale(0.95);
+  transform: scale(0.92);
+  border-radius: 50%;
 }
 
 /* Busy/Loading Holographic Sphere State */
@@ -110,6 +123,7 @@
   border-color: #34d399;
   box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
   transform: scale(1.1);
+  border-radius: 50%;
 }
 
 .promptforge-checkmark-svg {
@@ -125,6 +139,7 @@
   border-color: #f87171;
   box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
   transform: scale(1.1);
+  border-radius: 50%;
 }
 
 .promptforge-warning-svg {

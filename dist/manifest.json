@@ -29,12 +29,18 @@
     {
       "matches": [
         "https://chatgpt.com/*",
-        "https://chat.-openai.com/*",
+        "https://chat.openai.com/*",
         "https://claude.ai/*",
         "https://gemini.google.com/*",
         "https://copilot.microsoft.com/*",
         "https://grok.com/*",
-        "https://www.perplexity.ai/*"
+        "https://x.com/*",
+        "https://www.perplexity.ai/*",
+        "https://poe.com/*",
+        "https://chat.deepseek.com/*",
+        "https://www.meta.ai/*",
+        "https://chat.mistral.ai/*",
+        "https://huggingface.co/*"
       ],
       "js": [
         "src/config.js",

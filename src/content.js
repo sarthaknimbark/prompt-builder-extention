@@ -41,6 +41,78 @@
     return element.isContentEditable || element.getAttribute("contenteditable") === "true";
   }
 
+  // Platform-specific selectors for the main prompt textarea on every supported LLM site
+  const PLATFORM_SELECTORS = [
+    // ChatGPT
+    "#prompt-textarea",
+    "[data-id='root'][contenteditable='true']",
+    // Claude
+    "[data-testid='chat-input']",
+    "[contenteditable='true'][aria-label*='message']",
+    "[contenteditable='true'][aria-label*='chat']",
+    "[contenteditable='true'][aria-placeholder]",
+    // Gemini
+    "rich-textarea .ql-editor",
+    ".input-area .ql-editor",
+    ".prompt-box .ql-editor",
+    ".query-text[contenteditable='true']",
+    "[aria-label*='Gemini']",
+    // Grok
+    "textarea[placeholder*='message']",
+    "textarea[placeholder*='Ask']",
+    "textarea[placeholder*='prompt']",
+    "textarea[data-testid*='input']",
+    // Perplexity
+    "textarea[placeholder*='Perplexity']",
+    "textarea.resize-none",
+    // Generic fallbacks
+    "[contenteditable='true'][role='textbox']",
+    "[contenteditable='true'][spellcheck='true']",
+    "textarea:not([hidden]):not([aria-hidden='true'])"
+  ];
+
+  function getEditableContainer(element) {
+    if (!element) return null;
+    // Direct TEXTAREA or text INPUT → use as-is
+    if (element.tagName === "TEXTAREA" || (element.tagName === "INPUT" && ["text", "search"].includes(element.type))) {
+      return element;
+    }
+    // Element itself is contenteditable → walk up to root editable ancestor
+    if (element.isContentEditable || element.getAttribute("contenteditable") === "true") {
+      let root = element;
+      while (root.parentElement && (root.parentElement.isContentEditable || root.parentElement.getAttribute("contenteditable") === "true")) {
+        root = root.parentElement;
+      }
+      return root;
+    }
+    // Climb ancestors to find any editable parent
+    let parent = element.parentElement;
+    while (parent && parent !== document.body) {
+      if (parent.isContentEditable || parent.getAttribute("contenteditable") === "true") {
+        let root = parent;
+        while (root.parentElement && (root.parentElement.isContentEditable || root.parentElement.getAttribute("contenteditable") === "true")) {
+          root = root.parentElement;
+        }
+        return root;
+      }
+      parent = parent.parentElement;
+    }
+    return null;
+  }
+
+  function probeForPromptInput() {
+    for (const selector of PLATFORM_SELECTORS) {
+      try {
+        const el = document.querySelector(selector);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 100 && rect.height > 0) return el;
+        }
+      } catch (e) { /* invalid selector on this page, skip */ }
+    }
+    return null;
+  }
+
   function getText(element) {
     if (!element) return "";
     if ("value" in element) return element.value || "";
@@ -108,7 +180,7 @@
   const LOGO_URL = (typeof chrome !== "undefined" && chrome.runtime?.getURL)
     ? chrome.runtime.getURL("icons/logo.png")
     : "icons/logo.png";
-  const LOGO_HTML = `<img src="${LOGO_URL}" style="width: 32px; height: 32px; display: block; border-radius: 50%; filter: drop-shadow(0 2px 8px rgba(124, 58, 237, 0.3));" alt="Prompt Builder">`;
+  const LOGO_HTML = `<img src="${LOGO_URL}" style="width: 28px; height: 28px; display: block; border-radius: 50%;" alt="Prompt Builder">`;
 
   const WIZARD_HAT_SVG = `
     <div class="promptforge-magic-sphere">
@@ -161,11 +233,83 @@
     if (!state.button) createButton();
   }
 
+  function findSendButton(activeInput) {
+    if (!activeInput) return null;
+    
+    let container = activeInput.closest("form") || 
+                    activeInput.closest("[class*='input']") || 
+                    activeInput.closest("[class*='prompt']") || 
+                    activeInput.closest("[class*='chat']") ||
+                    activeInput.parentElement;
+                    
+    while (container && container !== document.body) {
+      const buttons = Array.from(container.querySelectorAll("button"));
+      
+      const sendBtn = buttons.find(btn => {
+        const label = (btn.getAttribute("aria-label") || btn.getAttribute("title") || btn.className || "").toLowerCase();
+        if (label.includes("send") || label.includes("submit") || label.includes("prompt")) return true;
+        
+        const svg = btn.querySelector("svg");
+        if (svg) {
+          const svgHtml = svg.outerHTML.toLowerCase();
+          if (svgHtml.includes("send") || svgHtml.includes("paper-plane") || svgHtml.includes("arrow") || svgHtml.includes("submit")) return true;
+        }
+        return false;
+      });
+      
+      if (sendBtn) {
+        const rect = sendBtn.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) return sendBtn;
+      }
+      
+      const rightmost = buttons.reduce((best, btn) => {
+        const r = btn.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0 || r.width > 80 || r.height > 80) return best;
+        if (!best) return btn;
+        const b = best.getBoundingClientRect();
+        return r.right > b.right ? btn : best;
+      }, null);
+      
+      if (rightmost) {
+        return rightmost;
+      }
+      
+      container = container.parentElement;
+    }
+    
+    const inputRect = activeInput.getBoundingClientRect();
+    const allButtons = Array.from(document.querySelectorAll("button"));
+    const nearbySend = allButtons.find(btn => {
+      const r = btn.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return false;
+      const isNearby = r.right > inputRect.right - 100 && r.right < inputRect.right + 100 &&
+                       r.bottom > inputRect.bottom - 100 && r.bottom < inputRect.bottom + 100;
+      if (!isNearby) return false;
+      const label = (btn.getAttribute("aria-label") || btn.getAttribute("title") || btn.className || "").toLowerCase();
+      return label.includes("send") || label.includes("submit") || btn.querySelector("svg");
+    });
+    
+    return nearbySend || null;
+  }
+
   function positionUi() {
     if (!state.activeInput || !state.button) return;
-    const rect = state.activeInput.getBoundingClientRect();
-    const left = Math.min(window.innerWidth - 48, Math.max(8, rect.right - 44));
-    const top = Math.min(window.innerHeight - 48, Math.max(8, rect.top - 46));
+    
+    const inputRect = state.activeInput.getBoundingClientRect();
+    const sendBtn = findSendButton(state.activeInput);
+    
+    let left = 0;
+    let top = 0;
+    
+    if (sendBtn) {
+      const sendRect = sendBtn.getBoundingClientRect();
+      left = sendRect.left - 42; 
+      top = sendRect.top + (sendRect.height - 40) / 2;
+    } else {
+      left = Math.min(window.innerWidth - 48, Math.max(8, inputRect.right - 44));
+      top = Math.min(window.innerHeight - 48, Math.max(8, inputRect.bottom - 44));
+    }
+    
     state.button.style.left = `${left}px`;
     state.button.style.top = `${top}px`;
   }
@@ -507,17 +651,83 @@ Expand retrieval using:
   }
 
   function handleFocus(event) {
-    const input = event.target;
-    if (!isEditable(input)) return;
-    const rect = input.getBoundingClientRect();
-    if (rect.width < 180 || rect.height < 28) return;
-    showButtonFor(input);
+    const target = event.target;
+    // First try direct detection
+    const container = getEditableContainer(target);
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      // Relaxed size gate: width > 100 and height > 0 (handles all platforms including Gemini)
+      if (rect.width > 100 && rect.height > 0) {
+        showButtonFor(container);
+        return;
+      }
+    }
+    // Fallback: use platform selector probe for this site
+    const probed = probeForPromptInput();
+    if (probed && probed !== state.activeInput) {
+      showButtonFor(probed);
+    }
   }
 
+  // Watch for dynamic DOM changes and late-rendered editors (e.g. Gemini's Quill editor)
+  let mutationProbeTimer = null;
+  const observer = new MutationObserver(() => {
+    if (mutationProbeTimer) return;
+    mutationProbeTimer = setTimeout(() => {
+      mutationProbeTimer = null;
+      if (state.button && !state.button.hidden) return; // already visible
+      const probed = probeForPromptInput();
+      if (probed && probed !== state.activeInput) {
+        // Only auto-activate if user already interacted with the page
+        if (document.hasFocus()) {
+          // Don't auto-show – wait for actual focus event
+        }
+      }
+    }, 500);
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
   document.addEventListener("focusin", handleFocus, true);
-  document.addEventListener("input", (event) => {
-    if (event.target === state.activeInput) positionUi();
+  
+  // Also trigger on click inside known editable areas
+  document.addEventListener("click", (event) => {
+    if (!state.button) {
+      // button not yet created – try to show on click on any input
+      handleFocus(event);
+      return;
+    }
+    const target = event.target;
+    const isInsideInput = state.activeInput && state.activeInput.contains(target);
+    const isInsideButton = state.button && state.button.contains(target);
+    const isInsideTooltip = tooltip && tooltip.contains(target);
+
+    if (isInsideButton || isInsideTooltip) return;
+
+    // Check if click is on a different editable element
+    const container = getEditableContainer(target);
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      if (rect.width > 100 && rect.height > 0) {
+        showButtonFor(container);
+        return;
+      }
+    }
+
+    if (!isInsideInput) {
+      state.button.hidden = true;
+      if (tooltip) tooltip.hidden = true;
+    }
   }, true);
+
+  document.addEventListener("input", (event) => {
+    if (state.activeInput && state.activeInput.contains(event.target)) {
+      positionUi();
+    } else {
+      // Input happened in an element we're not tracking - try to activate
+      handleFocus(event);
+    }
+  }, true);
+
   window.addEventListener("scroll", positionUi, true);
   window.addEventListener("resize", positionUi);
 })();
