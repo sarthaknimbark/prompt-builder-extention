@@ -226,6 +226,56 @@ Return:
 4. Source references or citations when available.`;
   }
 
+  function enhancementErrorMessage(error) {
+    if (error.name === "AbortError") return "The LLM request timed out.";
+    if (/failed to fetch|load failed|networkerror/i.test(error.message || "")) {
+      return "The backend proxy is unreachable or blocked. Check src/config.js and make sure the proxy is deployed and serving /api/chat.";
+    }
+    return error.message || "The LLM request failed.";
+  }
+
+  function sendEnhancementRequest(payload, signal) {
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      return new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+          reject(new DOMException("The request was aborted.", "AbortError"));
+          return;
+        }
+
+        const abort = () => reject(new DOMException("The request was aborted.", "AbortError"));
+        signal?.addEventListener("abort", abort, { once: true });
+
+        chrome.runtime.sendMessage(
+          {
+            type: "PROMPTFORGE_CHAT_COMPLETION",
+            endpoint: config.proxyEndpoint,
+            payload
+          },
+          (result) => {
+            signal?.removeEventListener("abort", abort);
+            const runtimeError = chrome.runtime.lastError;
+            if (runtimeError) {
+              reject(new Error(runtimeError.message));
+              return;
+            }
+            resolve(result);
+          }
+        );
+      });
+    }
+
+    return fetch(config.proxyEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal,
+      body: JSON.stringify(payload)
+    }).then(async (response) => ({
+      ok: response.ok,
+      status: response.status,
+      data: await response.json()
+    }));
+  }
+
   async function applySuggestion(action) {
     if (state.busy || !state.activeInput) return;
     const text = getText(state.activeInput).trim();
@@ -250,37 +300,34 @@ Return:
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 30000);
     try {
-      const response = await fetch(config.proxyEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: config.model || "llama-3.3-70b-versatile",
-          temperature: 0.3,
-          max_tokens: 900,
-          messages: [
-            {
-              role: "system",
-              content: "Rewrite user drafts into strong retrieval-augmented prompts. Return only the final improved prompt, no commentary. The prompt must preserve the user's original goal and add concrete retrieval guidance, source preferences, evidence requirements, ambiguity handling, constraints, and an output format. Do not return only a system instruction."
-            },
-            {
-              role: "user",
-              content: `Improve this draft into a complete retrieval-ready prompt. Make it useful for a retriever/RAG workflow by adding search terms, source requirements, evidence to extract, rules for missing or conflicting context, and a clear answer format:\n\n${text}`
-            }
-          ]
-        })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || `Request failed with ${response.status}`);
+      const result = await sendEnhancementRequest({
+        model: config.model || "llama-3.3-70b-versatile",
+        temperature: 0.3,
+        max_tokens: 900,
+        messages: [
+          {
+            role: "system",
+            content: "Rewrite user drafts into strong retrieval-augmented prompts. Return only the final improved prompt, no commentary. The prompt must preserve the user's original goal and add concrete retrieval guidance, source preferences, evidence requirements, ambiguity handling, constraints, and an output format. Do not return only a system instruction."
+          },
+          {
+            role: "user",
+            content: `Improve this draft into a complete retrieval-ready prompt. Make it useful for a retriever/RAG workflow by adding search terms, source requirements, evidence to extract, rules for missing or conflicting context, and a clear answer format:\n\n${text}`
+          }
+        ]
+      }, controller.signal);
+
+      if (!result?.ok) {
+        throw new Error(result?.data?.error?.message || `Request failed with ${result?.status || 0}`);
       }
-      const enhanced = data.choices?.[0]?.message?.content || "";
-      if (!enhanced.trim()) throw new Error("Empty response from model.");
+      const enhanced = result.data?.choices?.[0]?.message?.content || "";
+      if (!enhanced.trim()) {
+        throw new Error("The model returned an empty enhancement.");
+      }
       setText(state.activeInput, enhanced.trim());
       setStatus("Enhanced prompt applied.");
     } catch (error) {
       setText(state.activeInput, buildDetailedPrompt(text));
-      setStatus(`LLM unavailable; applied structured enhancement locally. ${error.name === "AbortError" ? "Request timed out." : error.message}`, true);
+      setStatus(`Applied structured enhancement locally. ${enhancementErrorMessage(error)}`, true);
     } finally {
       window.clearTimeout(timeout);
       state.busy = false;

@@ -7,6 +7,9 @@
     "default_title": "PromptForge Builder",
     "default_popup": "popup.html"
   },
+  "background": {
+    "service_worker": "src/background.js"
+  },
   "options_page": "app.html",
   "permissions": [
     "storage"
