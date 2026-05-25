@@ -1,113 +1,215 @@
+/* Magical floating button styles */
 .promptforge-assist-button {
   position: fixed;
   z-index: 2147483646;
-  width: 38px;
-  height: 38px;
-  border: 1px solid rgba(20, 52, 43, 0.18);
-  border-radius: 999px;
-  background: #14342b;
-  color: #fff;
-  box-shadow: 0 10px 28px rgba(20, 52, 43, 0.24);
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #102a22 0%, #1a4d3e 100%);
+  color: #ffffff;
+  box-shadow: 
+    0 4px 15px rgba(16, 42, 34, 0.3),
+    0 0 0 1px rgba(16, 42, 34, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   font: 800 13px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  padding: 0;
+  overflow: visible;
+  outline: none;
 }
 
-.promptforge-assist-button:hover {
-  background: #1d4a3d;
+.promptforge-assist-button:hover:not(.busy) {
+  transform: scale(1.1) translateY(-2px);
+  background: linear-gradient(135deg, #164033 0%, #226b56 100%);
+  box-shadow: 
+    0 8px 25px rgba(22, 107, 86, 0.4),
+    0 0 0 1px rgba(22, 107, 86, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-.promptforge-panel {
+.promptforge-assist-button:active:not(.busy) {
+  transform: scale(0.95);
+}
+
+/* Busy/Loading Holographic Sphere State */
+.promptforge-assist-button.busy {
+  width: 46px;
+  height: 46px;
+  background: radial-gradient(circle at center, #1b4d3e 0%, #0d201a 70%, #120422 100%);
+  border-color: rgba(34, 166, 127, 0.4);
+  box-shadow: 
+    0 0 25px rgba(34, 166, 127, 0.6),
+    inset 0 0 12px rgba(34, 166, 127, 0.3);
+  pointer-events: none;
+  transform: rotate(0deg);
+}
+
+/* Sphere Ring System (3D Orbital Rings) */
+.promptforge-magic-sphere {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 200px;
+}
+
+.promptforge-sphere-ring {
+  position: absolute;
+  border: 1px solid rgba(34, 166, 127, 0.4);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.promptforge-sphere-ring.ring-x {
+  width: 110%;
+  height: 110%;
+  animation: rotateRingX 2s linear infinite;
+  border-color: rgba(34, 166, 127, 0.5);
+  box-shadow: 0 0 8px rgba(34, 166, 127, 0.3);
+}
+
+.promptforge-sphere-ring.ring-y {
+  width: 100%;
+  height: 100%;
+  animation: rotateRingY 2.5s linear infinite;
+  border-color: rgba(138, 43, 226, 0.4); /* purple touch */
+  box-shadow: 0 0 8px rgba(138, 43, 226, 0.2);
+}
+
+.promptforge-sphere-ring.ring-z {
+  width: 90%;
+  height: 90%;
+  animation: rotateRingZ 1.5s linear infinite;
+  border-color: rgba(255, 183, 3, 0.4); /* gold touch */
+  box-shadow: 0 0 8px rgba(255, 183, 3, 0.2);
+}
+
+.promptforge-sphere-glow {
+  position: absolute;
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34,166,127,0.3) 0%, rgba(34,166,127,0) 70%);
+  animation: spherePulse 1s ease-in-out infinite alternate;
+}
+
+.promptforge-hat-container {
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: hatBob 2s ease-in-out infinite alternate;
+}
+
+.promptforge-hat-svg {
+  width: 22px;
+  height: 22px;
+  color: #ffb703; /* wizard gold hat color */
+  filter: drop-shadow(0 0 4px rgba(255, 183, 3, 0.6));
+}
+
+/* Success State */
+.promptforge-assist-button.success {
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  border-color: #34d399;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  transform: scale(1.1);
+}
+
+.promptforge-checkmark-svg {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff;
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Failed State */
+.promptforge-assist-button.failed {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  border-color: #f87171;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+  transform: scale(1.1);
+}
+
+.promptforge-warning-svg {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff;
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Glassmorphic Auto-Fading Tooltip */
+.promptforge-tooltip {
   position: fixed;
   z-index: 2147483647;
-  width: min(380px, calc(100vw - 24px));
-  border: 1px solid #d9dfdc;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #19201d;
-  box-shadow: 0 18px 48px rgba(20, 52, 43, 0.22);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  overflow: hidden;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(16, 42, 34, 0.85);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font: 500 12px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  animation: tooltipFadeIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  max-width: 240px;
+  text-align: center;
 }
 
-.promptforge-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: #f5f7f6;
-  border-bottom: 1px solid #d9dfdc;
+.promptforge-tooltip.error {
+  background: rgba(185, 28, 28, 0.9);
+  border-color: rgba(248, 113, 113, 0.2);
 }
 
-.promptforge-panel-title {
-  display: grid;
-  gap: 2px;
+/* Keyframe Animations */
+@keyframes rotateRingX {
+  0% { transform: rotateX(70deg) rotateY(0deg) rotateZ(0deg); }
+  100% { transform: rotateX(70deg) rotateY(0deg) rotateZ(360deg); }
 }
 
-.promptforge-panel-title strong {
-  font-size: 14px;
+@keyframes rotateRingY {
+  0% { transform: rotateX(-70deg) rotateY(0deg) rotateZ(360deg); }
+  100% { transform: rotateX(-70deg) rotateY(0deg) rotateZ(0deg); }
 }
 
-.promptforge-panel-title span {
-  color: #61706a;
-  font-size: 12px;
+@keyframes rotateRingZ {
+  0% { transform: rotateX(0deg) rotateY(80deg) rotateZ(0deg); }
+  100% { transform: rotateX(0deg) rotateY(80deg) rotateZ(360deg); }
 }
 
-.promptforge-close {
-  border: 0;
-  background: transparent;
-  color: #61706a;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
+@keyframes spherePulse {
+  0% { transform: scale(0.85); opacity: 0.5; }
+  100% { transform: scale(1.1); opacity: 1; }
 }
 
-.promptforge-panel-body {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
+@keyframes hatBob {
+  0% { transform: translateY(1px); }
+  100% { transform: translateY(-2px); }
 }
 
-.promptforge-action {
-  display: grid;
-  gap: 4px;
-  width: 100%;
-  border: 1px solid #d9dfdc;
-  border-radius: 8px;
-  background: #fff;
-  color: #19201d;
-  padding: 10px 12px;
-  text-align: left;
-  cursor: pointer;
+@keyframes tooltipFadeIn {
+  0% { opacity: 0; transform: translateY(6px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.promptforge-action:hover {
-  border-color: #14342b;
-  background: #f7fbf9;
+@keyframes popIn {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-.promptforge-action strong {
-  font-size: 13px;
-}
-
-.promptforge-action span {
-  color: #61706a;
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.promptforge-status {
-  border-left: 3px solid #2f80ed;
-  border-radius: 6px;
-  background: #eef6ff;
-  color: #16436f;
-  padding: 9px 10px;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.promptforge-status.error {
-  border-left-color: #b42318;
-  background: #fff1f0;
-  color: #7a271a;
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }

@@ -74,50 +74,86 @@
     element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
   }
 
+  let tooltip = null;
+
+  function createTooltip() {
+    tooltip = document.createElement("div");
+    tooltip.className = "promptforge-tooltip";
+    tooltip.hidden = true;
+    document.documentElement.appendChild(tooltip);
+  }
+
+  function showTooltip(message, isError = false, duration = 3000) {
+    if (!tooltip) createTooltip();
+    tooltip.textContent = message;
+    tooltip.classList.toggle("error", isError);
+    tooltip.hidden = false;
+    
+    // Position the tooltip right above the floating button
+    if (state.button) {
+      const rect = state.button.getBoundingClientRect();
+      const tooltipLeft = Math.min(window.innerWidth - 220, Math.max(12, rect.left + rect.width / 2 - 90));
+      const tooltipTop = Math.max(12, rect.top - 46);
+      tooltip.style.left = `${tooltipLeft}px`;
+      tooltip.style.top = `${tooltipTop}px`;
+    }
+    
+    // Auto fade out
+    if (state.tooltipTimeout) clearTimeout(state.tooltipTimeout);
+    state.tooltipTimeout = setTimeout(() => {
+      tooltip.hidden = true;
+    }, duration);
+  }
+
+  const WIZARD_HAT_SVG = `
+    <div class="promptforge-magic-sphere">
+      <div class="promptforge-sphere-ring ring-x"></div>
+      <div class="promptforge-sphere-ring ring-y"></div>
+      <div class="promptforge-sphere-ring ring-z"></div>
+      <div class="promptforge-sphere-glow"></div>
+      <div class="promptforge-hat-container">
+        <svg viewBox="0 0 24 24" class="promptforge-hat-svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 C10.5 6.5, 8.5 12, 6 15 C10 16.5, 14 16.5, 18 15 C15.5 12, 13.5 6.5, 12 2 Z" />
+          <path d="M2 17 C6 20, 18 20, 22 17 C18 15.5, 6 15.5, 2 17 Z" fill="currentColor" fill-opacity="0.2" />
+          <path d="M2 17 C6 20, 18 20, 22 17" />
+          <path d="M6.3 14.5 C10 16, 14 16, 17.7 14.5" />
+        </svg>
+      </div>
+    </div>
+  `;
+
+  const CHECKMARK_SVG = `
+    <svg viewBox="0 0 24 24" class="promptforge-checkmark-svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  `;
+
+  const WARNING_SVG = `
+    <svg viewBox="0 0 24 24" class="promptforge-warning-svg" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+  `;
+
   function createButton() {
     const button = document.createElement("button");
     button.className = "promptforge-assist-button";
     button.type = "button";
     button.textContent = "PF";
-    button.title = "PromptForge suggestions";
+    button.title = "Enhance with LLM";
     button.addEventListener("mousedown", (event) => event.preventDefault());
-    button.addEventListener("click", togglePanel);
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      if (state.busy) return;
+      await applySuggestion("enhance");
+    });
     document.documentElement.appendChild(button);
     state.button = button;
   }
 
-  function createPanel() {
-    const panel = document.createElement("section");
-    panel.className = "promptforge-panel";
-    panel.innerHTML = `
-      <div class="promptforge-panel-header">
-        <div class="promptforge-panel-title">
-          <strong>PromptForge</strong>
-          <span>Prompt suggestions</span>
-        </div>
-        <button class="promptforge-close" type="button" aria-label="Close">×</button>
-      </div>
-      <div class="promptforge-panel-body">
-        ${SUGGESTIONS.map((item) => `
-          <button class="promptforge-action" data-promptforge-action="${item.id}" type="button">
-            <strong>${item.title}</strong>
-            <span>${item.description}</span>
-          </button>
-        `).join("")}
-        <div class="promptforge-status" hidden></div>
-      </div>
-    `;
-    panel.querySelector(".promptforge-close").addEventListener("click", hidePanel);
-    panel.querySelectorAll("[data-promptforge-action]").forEach((button) => {
-      button.addEventListener("click", () => applySuggestion(button.dataset.promptforgeAction));
-    });
-    document.documentElement.appendChild(panel);
-    state.panel = panel;
-  }
-
   function ensureUi() {
     if (!state.button) createButton();
-    if (!state.panel) createPanel();
   }
 
   function positionUi() {
@@ -127,13 +163,6 @@
     const top = Math.min(window.innerHeight - 48, Math.max(8, rect.top - 46));
     state.button.style.left = `${left}px`;
     state.button.style.top = `${top}px`;
-
-    if (state.panel && !state.panel.hidden) {
-      const panelLeft = Math.min(window.innerWidth - 392, Math.max(12, rect.right - 380));
-      const panelTop = Math.min(window.innerHeight - 360, Math.max(12, rect.top - 350));
-      state.panel.style.left = `${panelLeft}px`;
-      state.panel.style.top = `${panelTop}px`;
-    }
   }
 
   function showButtonFor(input) {
@@ -143,22 +172,10 @@
     positionUi();
   }
 
-  function hidePanel() {
-    if (state.panel) state.panel.hidden = true;
-  }
-
-  function togglePanel() {
-    ensureUi();
-    state.panel.hidden = !state.panel.hidden;
-    positionUi();
-  }
-
   function setStatus(message, isError = false) {
-    const status = state.panel?.querySelector(".promptforge-status");
-    if (!status) return;
-    status.hidden = !message;
-    status.textContent = message || "";
-    status.classList.toggle("error", Boolean(isError));
+    if (message) {
+      showTooltip(message, isError);
+    }
   }
 
   function localRewrite(text, action) {
@@ -210,24 +227,103 @@ ${draft}
 
   function buildRetrievalPrompt(draft) {
     return `## Role
-You are an expert AI software engineer and advanced technical assistant.
+You are an expert retrieval-focused AI assistant.
+
+Answer only after grounding the response in the most relevant available context.
+
+---
 
 ## Objective
-Help the user solve their request efficiently by providing clear, accurate, and optimal solutions.
+Solve the user’s request accurately and efficiently.
 
-## Task
+## Active Request
 ${draft}
 
-## Instructions
-- Analyze the problem deeply and identify the most efficient algorithm, architecture, or approach.
-- Provide clean, robust, and well-commented code if code is required.
-- Handle edge cases, errors, and performance implications proactively.
-- If more details or context are needed to provide a perfect solution, state the assumptions clearly.
+The request may involve:
+* Coding
+* Debugging
+* AI/ML
+* System design
+* Research
+* Mathematics
+* Architecture
+* Optimization
+* Data analysis
+* General reasoning
 
-## Output Format
-1. **Solution Summary**: Brief explanation of the approach.
-2. **Implementation**: Detailed solution (e.g. clean code block, proof, or step-by-step logic).
-3. **Complexity & Edge Cases**: Brief analysis of performance and handling of edge cases.`;
+---
+
+## Retrieval Strategy
+Retrieve and prioritize:
+* Authoritative sources
+* Official documentation
+* Recent and version-specific information
+* Relevant frameworks, libraries, APIs, tools, and standards
+* Edge cases, constraints, and implementation details
+* Performance and scalability considerations
+* Security and production best practices
+
+Expand retrieval using:
+* Synonyms
+* Related technologies
+* Version names
+* Framework ecosystems
+* Alternative implementations
+* Domain-specific terminology
+
+---
+
+## Reasoning Rules
+* Do not hallucinate facts
+* Clearly separate facts from assumptions
+* If information is insufficient, ask only the minimum required clarification
+* Prefer practical implementation over theory
+* For coding tasks:
+  * Write production-quality code
+  * Use modular structure
+  * Add type hints
+  * Include error handling
+  * Optimize for readability and performance
+* For AI/ML tasks:
+  * Consider compute efficiency
+  * Mention memory/GPU optimization when relevant
+  * Warn about overfitting, leakage, or bad architecture choices
+
+---
+
+## Response Format
+### 1. Direct Solution
+* Clear and concise answer
+* Step-by-step implementation if needed
+
+### 2. Key Technical Insights
+* Important concepts
+* Trade-offs
+* Performance considerations
+* Architecture decisions
+
+### 3. Caveats / Edge Cases
+* Limitations
+* Assumptions
+* Security concerns
+* Version compatibility
+
+### 4. References
+* Official docs
+* Papers
+* APIs
+* Source links when available
+
+---
+
+## Output Style
+* Use short sections
+* Split topics into separate lines
+* Avoid unnecessary explanation
+* Prioritize clarity and efficiency
+* Keep responses structured and easy to scan
+* Use tables or bullets for comparisons
+* For complex problems, think step-by-step internally before answering`;
   }
 
   function enhancementErrorMessage(error) {
@@ -317,6 +413,11 @@ ${draft}
     }
 
     state.busy = true;
+    if (state.button) {
+      state.button.classList.add("busy");
+      state.button.innerHTML = WIZARD_HAT_SVG;
+    }
+    
     setStatus("Enhancing prompt...");
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 30000);
@@ -346,9 +447,31 @@ ${draft}
       }
       setText(state.activeInput, enhanced.trim());
       setStatus("Enhanced prompt applied.");
+
+      // Success animation transition
+      if (state.button) {
+        state.button.classList.remove("busy");
+        state.button.classList.add("success");
+        state.button.innerHTML = CHECKMARK_SVG;
+        setTimeout(() => {
+          state.button.classList.remove("success");
+          state.button.innerHTML = "PF";
+        }, 1500);
+      }
     } catch (error) {
       setText(state.activeInput, buildDetailedPrompt(text));
       setStatus(`Applied structured enhancement locally. ${enhancementErrorMessage(error)}`, true);
+
+      // Failure animation transition
+      if (state.button) {
+        state.button.classList.remove("busy");
+        state.button.classList.add("failed");
+        state.button.innerHTML = WARNING_SVG;
+        setTimeout(() => {
+          state.button.classList.remove("failed");
+          state.button.innerHTML = "PF";
+        }, 1500);
+      }
     } finally {
       window.clearTimeout(timeout);
       state.busy = false;
