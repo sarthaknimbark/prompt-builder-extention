@@ -129,6 +129,42 @@
       .join("\n\n");
   }
 
+  function buildRetrievalPrompt(draft) {
+    return `## Role
+You are a retrieval-focused assistant that answers only after grounding the response in the most relevant available context.
+
+## Original User Request
+${draft}
+
+## Retrieval Goal
+Find information that directly helps answer the user's request. Expand the search with likely synonyms, related entities, product or feature names, dates, versions, locations, and domain-specific terms from the request.
+
+## Retrieval Instructions
+- Prefer authoritative, current, and specific sources over generic summaries.
+- Retrieve enough context to compare claims, dates, definitions, requirements, and exceptions.
+- Extract exact facts, constraints, examples, metrics, names, dates, and source references that affect the answer.
+- If the request depends on a time period, version, jurisdiction, location, or audience, make that scope explicit before answering.
+
+## Answering Rules
+- Use the retrieved evidence to answer the original request, not just to describe the sources.
+- Do not invent facts that are missing from the retrieved context.
+- If sources conflict, explain the conflict and prefer the more authoritative or recent source.
+- If retrieval does not provide enough evidence, state what is missing and ask the smallest necessary clarifying question.
+- Keep the answer practical and focused on the user's goal.
+
+## Output Format
+Return:
+1. Direct answer or recommendation.
+2. Key evidence from retrieved context.
+3. Important caveats, assumptions, or missing information.
+4. Source references or citations when available.
+
+## Quality Criteria
+- Cover the main entities, constraints, and edge cases implied by the request.
+- Include examples or comparisons when they help the user make a decision.
+- Separate facts found in sources from assumptions or recommendations.`;
+  }
+
   function extractVariables(text) {
     const matches = text.matchAll(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g);
     return Array.from(new Set(Array.from(matches).map((match) => match[1])));
@@ -739,7 +775,20 @@ ${compiled}`
       });
       state.notice = "Prompt enhanced. Review and save it as a new version.";
     } catch (error) {
-      state.notice = error.name === "AbortError" ? "Enhancement timed out after 30 seconds." : error.message;
+      updateActivePrompt((prompt) => {
+        prompt.sections = [
+          {
+            id: uid("section"),
+            type: "custom",
+            title: "Enhanced Retrieval Prompt",
+            content: buildRetrievalPrompt(compiled),
+            required: true,
+            order: 0
+          }
+        ];
+        prompt.description = prompt.description || "Enhanced with PromptForge.";
+      });
+      state.notice = `LLM unavailable; applied structured enhancement locally. ${error.name === "AbortError" ? "Enhancement timed out after 30 seconds." : error.message}`;
     } finally {
       window.clearTimeout(timeout);
       state.enhancing = false;

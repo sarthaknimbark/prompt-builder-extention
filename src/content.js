@@ -47,13 +47,26 @@
     if (!element) return;
     element.focus();
     if ("value" in element) {
-      element.value = value;
+      const setter = Object.getOwnPropertyDescriptor(element.constructor.prototype, "value")?.set;
+      if (setter) {
+        setter.call(element, value);
+      } else {
+        element.value = value;
+      }
       element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
       element.dispatchEvent(new Event("change", { bubbles: true }));
       return;
     }
 
-    element.textContent = value;
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.execCommand("insertText", false, value);
+    if (getText(element).trim() !== value.trim()) {
+      element.textContent = value;
+    }
     element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
   }
 
@@ -147,26 +160,39 @@
   function localRewrite(text, action) {
     const trimmed = text.trim();
     if (action === "concise") {
-      return `Rewrite this as a clear, concise retrieval prompt. Keep the user's goal, required evidence, constraints, and expected output explicit:\n\n${trimmed}`;
+      return buildConcisePrompt(trimmed);
     }
     if (action === "detailed") {
-      return `Improve this prompt for a retrieval-augmented assistant.
-
-Original request:
-${trimmed}
-
-Add the missing details needed for better retrieval:
-- The exact user goal and decision to support.
-- Key entities, keywords, synonyms, time range, location, product names, versions, or domain terms to search for.
-- The types of sources or documents that should be preferred.
-- What evidence must be extracted from the retrieved context.
-- How to handle missing, conflicting, or low-confidence evidence.
-- A specific output format with citations or source references when available.`;
+      return buildDetailedPrompt(trimmed);
     }
     if (action === "structure") {
       return buildRetrievalPrompt(trimmed);
     }
     return trimmed;
+  }
+
+  function buildConcisePrompt(draft) {
+    return `## Goal
+${draft}
+
+## Instructions
+- Answer the request directly using relevant retrieved context.
+- Prefer current, authoritative, and specific evidence.
+- Do not invent missing facts.
+- Mention uncertainty when the retrieved context is incomplete or conflicting.
+
+## Output
+Return a concise structured answer with the key evidence and source references when available.`;
+  }
+
+  function buildDetailedPrompt(draft) {
+    return `${buildRetrievalPrompt(draft)}
+
+## Quality Criteria
+- Cover the main entities, constraints, and edge cases implied by the request.
+- Include examples or comparisons when they help the user make a decision.
+- Separate facts found in sources from assumptions or recommendations.
+- Keep the final answer complete enough that the user does not need to repeat the original request.`;
   }
 
   function buildRetrievalPrompt(draft) {
@@ -221,10 +247,13 @@ Return:
 
     state.busy = true;
     setStatus("Enhancing prompt...");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 30000);
     try {
       const response = await fetch(config.proxyEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           model: config.model || "llama-3.3-70b-versatile",
           temperature: 0.3,
@@ -250,8 +279,10 @@ Return:
       setText(state.activeInput, enhanced.trim());
       setStatus("Enhanced prompt applied.");
     } catch (error) {
-      setStatus(error.message, true);
+      setText(state.activeInput, buildDetailedPrompt(text));
+      setStatus(`LLM unavailable; applied structured enhancement locally. ${error.name === "AbortError" ? "Request timed out." : error.message}`, true);
     } finally {
+      window.clearTimeout(timeout);
       state.busy = false;
     }
   }
