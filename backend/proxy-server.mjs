@@ -1,5 +1,10 @@
 import http from "node:http";
 import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 loadEnvFile();
 
@@ -12,9 +17,10 @@ const RATE_LIMIT_PER_MINUTE = Number(process.env.RATE_LIMIT_PER_MINUTE || 30);
 const hits = new Map();
 
 function loadEnvFile() {
-  if (!existsSync(".env")) return;
+  const envPath = join(__dirname, "..", ".env");
+  if (!existsSync(envPath)) return;
 
-  const envText = readFileSync(".env", "utf8");
+  const envText = readFileSync(envPath, "utf8");
   for (const line of envText.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
@@ -25,7 +31,7 @@ function loadEnvFile() {
     const key = trimmed.slice(0, separatorIndex).trim();
     const rawValue = trimmed.slice(separatorIndex + 1).trim();
     const value = rawValue.replace(/^["']|["']$/g, "");
-    if (key && process.env[key] === undefined) {
+    if (key) {
       process.env[key] = value;
     }
   }
@@ -138,6 +144,7 @@ async function handleChat(request, response) {
 }
 
 const server = http.createServer(async (request, response) => {
+  console.log(`[Proxy] ${request.method} ${request.url}`);
   const origin = request.headers.origin || "";
 
   if (request.method === "OPTIONS") {
@@ -150,7 +157,7 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === "POST" && request.url === "/api/chat") {
+  if (request.method === "POST" && (request.url === "/api/chat" || request.url === "/" || request.url === "/api/chat/")) {
     await handleChat(request, response);
     return;
   }
