@@ -693,11 +693,25 @@
       const response = await sendChatRequest([
         {
           role: "system",
-          content: "You improve prompts for LLMs. Return only the rewritten prompt. Preserve the user's intent, add clear role, context, task, constraints, and output format where helpful, and do not add commentary."
+          content: "You improve prompts for retrieval-augmented LLM workflows. Return only the rewritten prompt, no commentary. Preserve the user's original intent and add concrete retrieval guidance, source preferences, evidence requirements, ambiguity handling, constraints, and an output format. Do not return only a system instruction."
         },
         {
           role: "user",
-          content: `Improve this prompt for reliable LLM output:\n\n${compiled}`
+          content: `Rewrite this into a complete retrieval-ready prompt for reliable LLM output.
+
+The improved prompt should include:
+- Role and objective.
+- Original user goal.
+- Retrieval/search guidance with keywords, synonyms, entities, dates, versions, locations, or domain terms to look for when they can be inferred.
+- Preferred source or document types.
+- Evidence that must be extracted from retrieved context.
+- Rules for missing, stale, ambiguous, or conflicting evidence.
+- Constraints for accuracy and scope.
+- A clear output format with citations or source references when available.
+
+Prompt to improve:
+
+${compiled}`
         }
       ], controller.signal);
       const data = await response.json();

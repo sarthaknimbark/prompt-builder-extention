@@ -11,12 +11,12 @@
     {
       id: "enhance",
       title: "Enhance with LLM",
-      description: "Rewrite this into a clearer prompt with role, task, context, constraints, and output format."
+      description: "Rewrite this into a richer retrieval-ready prompt with source and evidence guidance."
     },
     {
       id: "structure",
       title: "Add prompt structure",
-      description: "Turn the draft into a reusable structured prompt."
+      description: "Turn the draft into a reusable retrieval-focused structured prompt."
     },
     {
       id: "concise",
@@ -26,7 +26,7 @@
     {
       id: "detailed",
       title: "Make it detailed",
-      description: "Add context, examples, constraints, and quality criteria."
+      description: "Add context, retrieval requirements, examples, constraints, and quality criteria."
     }
   ];
 
@@ -147,15 +147,57 @@
   function localRewrite(text, action) {
     const trimmed = text.trim();
     if (action === "concise") {
-      return `Rewrite this as a clear, concise prompt. Keep only the essential context, task, constraints, and expected output:\n\n${trimmed}`;
+      return `Rewrite this as a clear, concise retrieval prompt. Keep the user's goal, required evidence, constraints, and expected output explicit:\n\n${trimmed}`;
     }
     if (action === "detailed") {
-      return `Improve this prompt by adding useful context, assumptions, constraints, examples if helpful, and a specific output format:\n\n${trimmed}`;
+      return `Improve this prompt for a retrieval-augmented assistant.
+
+Original request:
+${trimmed}
+
+Add the missing details needed for better retrieval:
+- The exact user goal and decision to support.
+- Key entities, keywords, synonyms, time range, location, product names, versions, or domain terms to search for.
+- The types of sources or documents that should be preferred.
+- What evidence must be extracted from the retrieved context.
+- How to handle missing, conflicting, or low-confidence evidence.
+- A specific output format with citations or source references when available.`;
     }
     if (action === "structure") {
-      return `## Role\nYou are a helpful expert assistant.\n\n## Context\n${trimmed}\n\n## Task\nComplete the user's request clearly and accurately.\n\n## Constraints\nAsk clarifying questions only when required. Avoid unsupported assumptions.\n\n## Output Format\nReturn a clear, structured answer.`;
+      return buildRetrievalPrompt(trimmed);
     }
     return trimmed;
+  }
+
+  function buildRetrievalPrompt(draft) {
+    return `## Role
+You are a retrieval-focused assistant that answers only after grounding the response in the most relevant available context.
+
+## Original User Request
+${draft}
+
+## Retrieval Goal
+Find information that directly helps answer the user's request. Expand the search with likely synonyms, related entities, product or feature names, dates, versions, locations, and domain-specific terms from the request.
+
+## Retrieval Instructions
+- Prefer authoritative, current, and specific sources over generic summaries.
+- Retrieve enough context to compare claims, dates, definitions, requirements, and exceptions.
+- Extract exact facts, constraints, examples, metrics, names, dates, and source references that affect the answer.
+- If the request depends on a time period, version, jurisdiction, location, or audience, make that scope explicit before answering.
+
+## Answering Rules
+- Use the retrieved evidence to answer the original request, not just to describe the sources.
+- Do not invent facts that are missing from the retrieved context.
+- If sources conflict, explain the conflict and prefer the more authoritative or recent source.
+- If retrieval does not provide enough evidence, state what is missing and ask the smallest necessary clarifying question.
+- Keep the answer practical and focused on the user's goal.
+
+## Output Format
+Return:
+1. Direct answer or recommendation.
+2. Key evidence from retrieved context.
+3. Important caveats, assumptions, or missing information.
+4. Source references or citations when available.`;
   }
 
   async function applySuggestion(action) {
@@ -190,11 +232,11 @@
           messages: [
             {
               role: "system",
-              content: "Rewrite user drafts into strong LLM prompts. Return only the improved prompt, no commentary."
+              content: "Rewrite user drafts into strong retrieval-augmented prompts. Return only the final improved prompt, no commentary. The prompt must preserve the user's original goal and add concrete retrieval guidance, source preferences, evidence requirements, ambiguity handling, constraints, and an output format. Do not return only a system instruction."
             },
             {
               role: "user",
-              content: `Improve this prompt:\n\n${text}`
+              content: `Improve this draft into a complete retrieval-ready prompt. Make it useful for a retriever/RAG workflow by adding search terms, source requirements, evidence to extract, rules for missing or conflicting context, and a clear answer format:\n\n${text}`
             }
           ]
         })
