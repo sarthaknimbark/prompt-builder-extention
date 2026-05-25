@@ -232,6 +232,19 @@ Return:
     settingsRows.forEach((row) => {
       state.settings[row.key] = row.value;
     });
+
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      try {
+        const stored = await new Promise((resolve) => {
+          chrome.storage.local.get(null, resolve);
+        });
+        Object.keys(stored).forEach((key) => {
+          state.settings[key] = stored[key];
+        });
+      } catch (err) {
+        console.error("Failed to load settings from chrome.storage.local", err);
+      }
+    }
   }
 
   async function savePrompt(prompt, changeNote) {
@@ -262,6 +275,13 @@ Return:
   async function persistSetting(key, value) {
     state.settings[key] = value;
     await db.put("settings", { key, value });
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      try {
+        await chrome.storage.local.set({ [key]: value });
+      } catch (err) {
+        console.error("Failed to save setting to chrome.storage.local", err);
+      }
+    }
   }
 
   function setView(view) {
@@ -617,7 +637,40 @@ Return:
     };
 
     if (state.settings.apiMode === "proxy") {
-      return fetch(state.settings.proxyEndpoint, {
+      const endpoint = state.settings.proxyEndpoint;
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        return new Promise((resolve, reject) => {
+          if (signal?.aborted) {
+            reject(new DOMException("The request was aborted.", "AbortError"));
+            return;
+          }
+          const abort = () => reject(new DOMException("The request was aborted.", "AbortError"));
+          signal?.addEventListener("abort", abort, { once: true });
+
+          chrome.runtime.sendMessage(
+            {
+              type: "PROMPTFORGE_CHAT_COMPLETION",
+              endpoint,
+              payload
+            },
+            (result) => {
+              signal?.removeEventListener("abort", abort);
+              const runtimeError = chrome.runtime.lastError;
+              if (runtimeError) {
+                reject(new Error(runtimeError.message));
+                return;
+              }
+              resolve({
+                ok: result.ok,
+                status: result.status,
+                json: async () => result.data
+              });
+            }
+          );
+        });
+      }
+
+      return fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -699,6 +752,78 @@ Return:
     }
   }
 
+  function parseMarkdownToSections(markdown) {
+    const lines = markdown.split(/\r?\n/);
+    const sections = [];
+    let currentSection = null;
+    let currentContent = [];
+
+    const headerRegex = /^(?:#|##|###)\s+(.+)$/;
+
+    for (const line of lines) {
+      const match = line.match(headerRegex);
+      if (match) {
+        if (currentSection) {
+          currentSection.content = currentContent.join("\n").trim();
+          sections.push(currentSection);
+        }
+        const title = match[1].trim();
+        // Try to match title with a section type
+        const normalized = title.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+        let type = "custom";
+        if (SECTION_TYPES.includes(normalized)) {
+          type = normalized;
+        } else if (normalized === "output") {
+          type = "output_format";
+        }
+        
+        currentSection = {
+          id: uid("section"),
+          type,
+          title,
+          content: "",
+          required: ["role", "context", "task", "output_format"].includes(type),
+          order: sections.length
+        };
+        currentContent = [];
+      } else {
+        if (currentSection) {
+          currentContent.push(line);
+        } else if (line.trim()) {
+          // If content appears before any header, create an initial custom section
+          currentSection = {
+            id: uid("section"),
+            type: "custom",
+            title: "Introduction",
+            content: "",
+            required: false,
+            order: 0
+          };
+          currentContent.push(line);
+        }
+      }
+    }
+
+    if (currentSection) {
+      currentSection.content = currentContent.join("\n").trim();
+      sections.push(currentSection);
+    }
+
+    // If no sections were parsed at all, return a single custom section
+    if (sections.length === 0) {
+      sections.push({
+        id: uid("section"),
+        type: "custom",
+        title: "Enhanced Prompt",
+        content: markdown.trim(),
+        required: true,
+        order: 0
+      });
+    }
+
+    return sections;
+  }
+
   async function enhancePrompt() {
     if (!state.activePrompt || state.enhancing) return;
     const compiled = compilePrompt(state.activePrompt);
@@ -761,31 +886,13 @@ ${compiled}`
       }
 
       updateActivePrompt((prompt) => {
-        prompt.sections = [
-          {
-            id: uid("section"),
-            type: "custom",
-            title: "Enhanced Prompt",
-            content: enhanced.trim(),
-            required: true,
-            order: 0
-          }
-        ];
+        prompt.sections = parseMarkdownToSections(enhanced.trim());
         prompt.description = prompt.description || "Enhanced with PromptForge.";
       });
       state.notice = "Prompt enhanced. Review and save it as a new version.";
     } catch (error) {
       updateActivePrompt((prompt) => {
-        prompt.sections = [
-          {
-            id: uid("section"),
-            type: "custom",
-            title: "Enhanced Retrieval Prompt",
-            content: buildRetrievalPrompt(compiled),
-            required: true,
-            order: 0
-          }
-        ];
+        prompt.sections = parseMarkdownToSections(buildRetrievalPrompt(compiled));
         prompt.description = prompt.description || "Enhanced with PromptForge.";
       });
       state.notice = `LLM unavailable; applied structured enhancement locally. ${error.name === "AbortError" ? "Enhancement timed out after 30 seconds." : error.message}`;
@@ -943,6 +1050,22 @@ ${compiled}`
   async function init() {
     wireEvents();
     await load();
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      try {
+        const keys = ["apiMode", "proxyEndpoint", "model", "provider", "endpoint", "apiKey", "temperature", "maxTokens"];
+        const toStore = {};
+        keys.forEach((key) => {
+          if (state.settings[key] !== undefined) {
+            toStore[key] = state.settings[key];
+          }
+        });
+        if (Object.keys(toStore).length > 0) {
+          chrome.storage.local.set(toStore);
+        }
+      } catch (err) {
+        console.error("Failed to initialize chrome.storage.local", err);
+      }
+    }
     render();
   }
 

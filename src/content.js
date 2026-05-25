@@ -4,7 +4,11 @@
     activeInput: null,
     button: null,
     panel: null,
-    busy: false
+    busy: false,
+    settings: {
+      proxyEndpoint: config.proxyEndpoint || "",
+      model: config.model || "llama-3.3-70b-versatile"
+    }
   };
 
   const SUGGESTIONS = [
@@ -234,7 +238,7 @@ Return:
     return error.message || "The LLM request failed.";
   }
 
-  function sendEnhancementRequest(payload, signal) {
+  function sendEnhancementRequest(endpoint, payload, signal) {
     if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
       return new Promise((resolve, reject) => {
         if (signal?.aborted) {
@@ -248,7 +252,7 @@ Return:
         chrome.runtime.sendMessage(
           {
             type: "PROMPTFORGE_CHAT_COMPLETION",
-            endpoint: config.proxyEndpoint,
+            endpoint: endpoint,
             payload
           },
           (result) => {
@@ -264,7 +268,7 @@ Return:
       });
     }
 
-    return fetch(config.proxyEndpoint, {
+    return fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal,
@@ -274,6 +278,20 @@ Return:
       status: response.status,
       data: await response.json()
     }));
+  }
+
+  function loadSettings() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        chrome.storage.local.get(["proxyEndpoint", "model"], (res) => {
+          if (res.proxyEndpoint) state.settings.proxyEndpoint = res.proxyEndpoint;
+          if (res.model) state.settings.model = res.model;
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
   }
 
   async function applySuggestion(action) {
@@ -290,8 +308,11 @@ Return:
       return;
     }
 
-    if (!config.proxyEndpoint) {
-      setStatus("Set proxyEndpoint in src/config.js before using LLM enhancement.", true);
+    await loadSettings();
+
+    const endpoint = state.settings.proxyEndpoint || config.proxyEndpoint;
+    if (!endpoint) {
+      setStatus("Set Backend Proxy URL in Settings before using LLM enhancement.", true);
       return;
     }
 
@@ -300,8 +321,8 @@ Return:
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 30000);
     try {
-      const result = await sendEnhancementRequest({
-        model: config.model || "llama-3.3-70b-versatile",
+      const result = await sendEnhancementRequest(endpoint, {
+        model: state.settings.model || config.model || "llama-3.3-70b-versatile",
         temperature: 0.3,
         max_tokens: 900,
         messages: [
