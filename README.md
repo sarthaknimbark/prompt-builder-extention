@@ -93,14 +93,19 @@ Browser Tab (e.g. claude.ai)
 ---
 
 ### Environment Variables (`.env`)
-
+```bash
 GROQ_API_KEY=Replace with your credentials
-GROQ_MODEL=llama-3.3-70b-versatile
-GROQ_ENDPOINT=https://api.groq.com/openai/v1/chat/completions
-PORT=8787
-RATE_LIMIT_PER_MINUTE=30
-ALLOWED_ORIGINS=*
 
+GROQ_MODEL=llama-3.3-70b-versatile
+
+GROQ_ENDPOINT=https://api.groq.com/openai/v1/chat/completions
+
+PORT=8787
+
+RATE_LIMIT_PER_MINUTE=30
+
+ALLOWED_ORIGINS=*
+```
 
 ---
 
