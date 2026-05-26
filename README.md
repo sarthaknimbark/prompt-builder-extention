@@ -62,7 +62,7 @@
 cd prompt-builder-extention
 
 # 2. Configure API key
-cp .env.example .env
+cp .env
 # Edit .env → set GROQ_API_KEY=gsk_...
 
 # 3. Start proxy (keep running)
@@ -94,14 +94,13 @@ Browser Tab (e.g. claude.ai)
 
 ### Environment Variables (`.env`)
 
-| Key | Default | Description |
-|---|---|---|
-| `GROQ_API_KEY` | required | Your Groq API key |
-| `PORT` | `8787` | Proxy server port |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | LLM model |
-| `GROQ_ENDPOINT` | Groq completions URL | Upstream API |
-| `RATE_LIMIT_PER_MINUTE` | `30` | Max requests/min per IP |
-| `ALLOWED_ORIGINS` | `*` | CORS allowed origins |
+GROQ_API_KEY=Replace with your credentials
+GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_ENDPOINT=https://api.groq.com/openai/v1/chat/completions
+PORT=8787
+RATE_LIMIT_PER_MINUTE=30
+ALLOWED_ORIGINS=*
+
 
 ---
 
