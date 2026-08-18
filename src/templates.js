@@ -58,7 +58,7 @@ window.PROMPTFORGE_TEMPLATES = [
       { type: "constraints", title: "Constraints", content: "Keep the concept distinctive but feasible. Avoid generic slogans.", required: false },
       { type: "output_format", title: "Output Format", content: "Return objective, audience insight, concept, message pillars, deliverables, and acceptance criteria.", required: true }
     ]
-  },
+  },d
   {
     id: "tpl-support-reply",
     title: "Support Reply",
@@ -68,7 +68,7 @@ window.PROMPTFORGE_TEMPLATES = [
     tags: ["support", "customer", "reply"],
     sections: [
       { type: "role", title: "Role", content: "You are a helpful customer support specialist.", required: true },
-      { type: "context", title: "Context", content: "Customer issue: {{issue}}. Account status: {{account_status}}.", required: true },
+      { type: "context", title: "Context", content: "Customer idddddssue: {{issue}}. Account status: {{account_status}}.", required: true },
       { type: "task", title: "Task", content: "Write a response that acknowledges the issue and gives the customer a clear next step.", required: true },
       { type: "constraints", title: "Constraints", content: "Be direct, calm, and specific. Do not promise outcomes that are not confirmed.", required: false },
       { type: "output_format", title: "Output Format", content: "Return subject and reply body.", required: true }
